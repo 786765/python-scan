@@ -39,235 +39,223 @@ def log(msg, level="INFO"):
 
 # ================== 【修复】完整HTML前端（解决日志不更新问题） ==================
 HTML_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<title>Eclipse Veil 安全控制台</title>
-<style>
-body {
-background-color: #0a0a1a;
-font-family: 'Courier New', monospace;
-overflow: hidden;
-margin: 0;
-padding: 2vh;
-text-align: center;
-color: #0ff;
+ <!DOCTYPE html>
+ <html lang="zh-CN">
+ <head>
+ <meta charset="UTF-8">
+ <title>Eclipse Veil 安全控制台</title>
+ <style>
+ body {
+    /* 1. 静态图片路径（必须按之前说的放好 static 文件夹） */
+    background-image: url('/static/8876.jpg');
+    
+    /* 2. 基础样式 */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    
+    /* 3. 🔥 去掉了 background-blend-mode 和 background-color，完全不加阴影 */
+    /* background-color: rgba(10, 10, 26, 0.85); */ /* 注释掉这行 */
+    /* background-blend-mode: darken; */ /* 注释掉这行 */
+    
+    /* 4. 文字颜色和字体 */
+    color: #0ff;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    margin: 0;
+    padding: 2vh;
+    text-align: center;
 }
 
-h1 {
-font-size: 28px;
-margin-bottom: 30px;
-text-shadow: 0 0 15px #0ff;
-}
+ h1 {
+ font-size: 28px;
+ margin-bottom: 30px;
+ text-shadow: 0 0 15px #0ff;
+ }
+ pre {
+ font-size: 20px;
+ line-height: 1.2;
+ font-weight: bold;
+ animation: glitch 0.2s infinite alternate, colorflash 1.5s infinite linear;
+ margin-bottom: 20px;
+ }
+ /* 彩色渐变闪烁 */
+ @keyframes colorflash {
+ 0%  { color: #0ff; text-shadow: 0 0 10px #0ff,0 0 30px #0ff; }
+ 20% { color: #ff0; text-shadow: 0 0 10px #ff0,0 0 30px #ff0; }
+ 40% { color: #0f0; text-shadow: 0 0 10px #0f0,0 0 30px #0f0; }
+ 60% { color: #f0f; text-shadow: 0 0 10px #f0f,0 0 30px #f0f; }
+ 80% { color: #f30; text-shadow: 0 0 10px #f30,0 0 30px #f30; }
+ 100%{ color: #0ff; text-shadow: 0 0 10px #0ff,0 0 30px #0ff; }
+ }
+ /* 故障抖动 */
+ @keyframes glitch {
+ 0% { transform: translate(0); }
+ 50% { transform: translate(-1px,1px); }
+ 100% { transform: translate(1px,-1px); }
+ }
+ /* 扫描线 */
+ body::after {
+ content: "";
+ position: fixed; top:0; left:0; width:100%; height:100%;
+ background: repeating-linear-gradient(
+ 0deg, rgba(0,255,255,0.05) 0px, rgba(0,255,255,0.05) 1px, transparent 1px, transparent 2px
+ );
+ pointer-events: none;
+ }
+ /* 自定义UI样式 */
+ .container {
+ position: relative;
+ z-index: 10;
+ }
+ /* 输入框样式 */
+ #targetInput {
+ background: #111;
+ border: 2px solid #0ff;
+ color: #fff;
+ padding: 12px 20px;
+ width: 350px;
+ font-size: 16px;
+ margin: 10px;
+ border-radius: 4px;
+ outline: none;
+ }
+ .btn-start {
+ background: #111;
+ border: 2px solid #0f0;
+ color: #0f0;
+ padding: 12px 25px;
+ font-size: 16px;
+ font-weight: bold;
+ cursor: pointer;
+ margin: 10px;
+ transition: 0.3s;
+ text-shadow: 0 0 10px #0f0;
+ border-radius: 4px;
+ }
+ .btn-start:hover {
+ background: #0f0;
+ color: #000;
+ box-shadow: 0 0 20px #0f0;
+ }
+ .btn-start:disabled {
+ border-color: #666;
+ color: #666;
+ cursor: not-allowed;
+ background: #111;
+ box-shadow: none;
+ }
+ #resultArea {
+ margin-top: 20px;
+ border: 1px solid #333;
+ background: rgba(0,0,0,0.7);
+ height: 350px;
+ width: 85%;
+ margin-left: auto;
+ margin-right: auto;
+ padding: 15px;
+ text-align: left;
+ overflow-y: auto;
+ font-size: 13px;
+ color: #fff;
+ border-radius: 4px;
+ white-space: pre-wrap;
+ word-wrap: break-word;
+ }
+ </style>
+ </head>
+ <body>
+ <div class="container">
+     <h1>ECLIPSE VEIL - 安全扫描控制台</h1>
 
-pre {
-font-size: 20px;
-line-height: 1.2;
-font-weight: bold;
-animation: glitch 0.2s infinite alternate, colorflash 1.5s infinite linear;
-margin-bottom: 20px;
-}
+     <pre>
+    ███████╗ ██████╗  ██████╗ ████████╗ ██████╗  ██████╗  ██████╗ 
+   ██╔════╝██╔══██╗██╔═══██╗╚══██╔══╝██╔═══██╗██╔══██╗██╔════╝
+   █████╗  ██████╔╝██║   ██║   ██║   ██║   ██║██████╔╝██║     
+   ██╔══╝  ██╔══██╗██║   ██║   ██║   ██║   ██║██╔══██╗██║     
+   ██║     ╚█████╔╝╚██████╔╝   ██║   ╚██████╔╝██║  ██╗╚██████╗
+   ╚═╝      ╚════╝  ╚═════╝    ╚═╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝
+     </pre>
+     <!-- 输入框 + 交互按钮 -->
+     <input type="text" id="targetInput" placeholder="请输入目标域名（如 baidu.com）" value="baidu.com">
+     <button class="btn-start" id="startBtn" onclick="startScan()">🚀 启动安全扫描</button>
 
-/* 彩色渐变闪烁 */
-@keyframes colorflash {
-0%  { color: #0ff; text-shadow: 0 0 10px #0ff,0 0 30px #0ff; }
-20% { color: #ff0; text-shadow: 0 0 10px #ff0,0 0 30px #ff0; }
-40% { color: #0f0; text-shadow: 0 0 10px #0f0,0 0 30px #0f0; }
-60% { color: #f0f; text-shadow: 0 0 10px #f0f,0 0 30px #f0f; }
-80% { color: #f30; text-shadow: 0 0 10px #f30,0 0 30px #f30; }
-100%{ color: #0ff; text-shadow: 0 0 10px #0ff,0 0 30px #0ff; }
-}
-
-/* 故障抖动 */
-@keyframes glitch {
-0% { transform: translate(0); }
-50% { transform: translate(-1px,1px); }
-100% { transform: translate(1px,-1px); }
-}
-
-/* 扫描线 */
-body::after {
-content: "";
-position: fixed; top:0; left:0; width:100%; height:100%;
-background: repeating-linear-gradient(
-0deg, rgba(0,255,255,0.05) 0px, rgba(0,255,255,0.05) 1px, transparent 1px, transparent 2px
-);
-pointer-events: none;
-}
-
-/* 自定义UI样式 */
-.container {
-position: relative;
-z-index: 10;
-}
-
-/* 输入框样式 */
-#targetInput {
-background: #111;
-border: 2px solid #0ff;
-color: #fff;
-padding: 12px 20px;
-width: 350px;
-font-size: 16px;
-margin: 10px;
-border-radius: 4px;
-outline: none;
-}
-
-.btn-start {
-background: #111;
-border: 2px solid #0f0;
-color: #0f0;
-padding: 12px 25px;
-font-size: 16px;
-font-weight: bold;
-cursor: pointer;
-margin: 10px;
-transition: 0.3s;
-text-shadow: 0 0 10px #0f0;
-border-radius: 4px;
-}
-
-.btn-start:hover {
-background: #0f0;
-color: #000;
-box-shadow: 0 0 20px #0f0;
-}
-
-.btn-start:disabled {
-border-color: #666;
-color: #666;
-cursor: not-allowed;
-background: #111;
-box-shadow: none;
-}
-
-#resultArea {
-margin-top: 20px;
-border: 1px solid #333;
-background: rgba(0,0,0,0.7);
-height: 350px;
-width: 85%;
-margin-left: auto;
-margin-right: auto;
-padding: 15px;
-text-align: left;
-overflow-y: auto;
-font-size: 13px;
-color: #fff;
-border-radius: 4px;
-white-space: pre-wrap;
-word-wrap: break-word;
-}
-</style>
-</head>
-<body>
-
-<div class="container">
-    <h1>ECLIPSE VEIL - 安全扫描控制台</h1>
-
-    <pre>
-__/\\\\\\\\\\\\\\\_        _______________        _______        __/\\\\\\____        _______________        ______________        ________________         ___________         __/\\\________/\\\_        ________________        _______        __/\\\\\\____        __/\\\\\\____
- _\/\\\///////////__        _______________        _______        _\////\\\____        _______________        ______________        ________________         ___________         _\/\\\_______\/\\\_        ________________        _______        _\////\\\____        _\////\\\____
-  _\/\\\_____________        _______________        __/\\\_        ____\/\\\____        ___/\\\\\\\\\__        ______________        ________________         ___________         _\//\\\______/\\\__        ________________        __/\\\_        ____\/\\\____        ____\/\\\____
-   _\/\\\\\\\\\\\_____        _____/\\\\\\\\_        _\///__        ____\/\\\____        __/\\\/////\\\_        __/\\\\\\\\\\_        _____/\\\\\\\\__         ___________         __\//\\\____/\\\___        _____/\\\\\\\\__        _\///__        ____\/\\\____        ____\/\\\____
-    _\/\\\///////______        ___/\\\//////__        __/\\\_        ____\/\\\____        _\/\\\\\\\\\\__        _\/\\\//////__        ___/\\\/////\\\_         ___________         ___\//\\\__/\\\____        ___/\\\/////\\\_        __/\\\_        ____\/\\\____        ____\/\\\____
-     _\/\\\_____________        __/\\\_________        _\/\\\_        ____\/\\\____        _\/\\\//////___        _\/\\\\\\\\\\_        __/\\\\\\\\\\\__         ___________         ____\//\\\/\\\_____        __/\\\\\\\\\\\__        _\/\\\_        ____\/\\\____        ____\/\\\____
-      _\/\\\_____________        _\//\\\________        _\/\\\_        ____\/\\\____        _\/\\\_________        _\////////\\\_        _\//\\///////___         ___________         _____\//\\\\\______        _\//\\///////___        _\/\\\_        ____\/\\\____        ____\/\\\____
-       _\/\\\\\\\\\\\\\\\_        __\///\\\\\\\\_        _\/\\\_        __/\\\\\\\\\_        _\/\\\_________        __/\\\\\\\\\\_        __\//\\\\\\\\\\_         ___________         ______\//\\\_______        __\//\\\\\\\\\\_        _\/\\\_        __/\\\\\\\\\_        __/\\\\\\\\\_
-        _\///////////////__        ____\////////__        _\///__        _\/////////__        _\///__________        _\//////////__        ___\//////////__         ___________         _______\///________        ___\//////////__        _\///__        _\/////////__        _\/////////__
-    </pre>
-
-    <!-- 输入框 + 交互按钮 -->
-    <input type="text" id="targetInput" placeholder="请输入目标域名（如 baidu.com）" value="baidu.com">
-    <button class="btn-start" id="startBtn" onclick="startScan()">🚀 启动安全扫描</button>
-
-    <div id="resultArea">等待扫描开始...</div>
-</div>
-
-<script>
-// -------------------
-// 【修复】前端逻辑：解决日志不更新、按钮重复点击问题
-// -------------------
-let isScanning = false;
-const resultArea = document.getElementById('resultArea');
-const startBtn = document.getElementById('startBtn');
-const targetInput = document.getElementById('targetInput');
-
-// 轮询日志（核心修复：解决前端不显示日志）
-function pollLogs() {
-    fetch('/api/get_logs')
-    .then(res => res.json())
-    .then(data => {
-        if (data.logs && data.logs.length > 0) {
-            resultArea.textContent = data.logs.join('\\n');
-            resultArea.scrollTop = resultArea.scrollHeight; // 自动滚动到底部
-        }
-        // 扫描中则继续轮询
-        if (isScanning) {
-            setTimeout(pollLogs, 800);
-        }
-    })
-    .catch(err => {
-        resultArea.textContent += `\\n[错误] 日志拉取失败: ${err}`;
-        if (isScanning) setTimeout(pollLogs, 1000);
-    });
-}
-
-// 启动扫描
-function startScan() {
-    const target = targetInput.value.trim();
-    if (!target) {
-        alert('❌ 请输入有效的目标域名！');
-        return;
-    }
-    if (isScanning) {
-        alert('⚠️ 扫描正在进行中，请等待完成！');
-        return;
-    }
-
-    // 重置状态
-    isScanning = true;
-    startBtn.disabled = true;
-    startBtn.textContent = '🔄 扫描中...';
-    resultArea.textContent = `[系统] 开始扫描目标: ${target}\\n`;
-
-    // 发送请求给Flask后端
-    fetch('/api/start_scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target: target })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status === 'success') {
-            resultArea.textContent += '[系统] 扫描任务已启动，后台运行中...\\n';
-            pollLogs(); // 启动日志轮询
-        } else {
-            resultArea.textContent += `[错误] 启动失败: ${data.message}\\n`;
-            resetScanState();
-        }
-    })
-    .catch(err => {
-        resultArea.textContent += `[错误] 连接后端失败: ${err}\\n`;
-        resetScanState();
-    });
-}
-
-// 重置扫描状态
-function resetScanState() {
-    isScanning = false;
-    startBtn.disabled = false;
-    startBtn.textContent = '🚀 启动安全扫描';
-}
-</script>
-
-</body>
-</html>
-'''
-
-
+     <div id="resultArea">等待扫描开始...</div>
+ </div>
+ <script>
+ // -------------------
+ // 【修复】前端逻辑：解决日志不更新、按钮重复点击问题
+ // -------------------
+ let isScanning = false;
+ const resultArea = document.getElementById('resultArea');
+ const startBtn = document.getElementById('startBtn');
+ const targetInput = document.getElementById('targetInput');
+ // 轮询日志（核心修复：解决前端不显示日志）
+ function pollLogs() {
+     fetch('/api/get_logs')
+     .then(res => res.json())
+     .then(data => {
+         if (data.logs && data.logs.length > 0) {
+             resultArea.textContent = data.logs.join('\\n');
+             resultArea.scrollTop = resultArea.scrollHeight; // 自动滚动到底部
+         }
+         // 扫描中则继续轮询
+         if (isScanning) {
+             setTimeout(pollLogs, 800);
+         }
+     })
+     .catch(err => {
+         resultArea.textContent += `\\n[错误] 日志拉取失败: ${err}`;
+         if (isScanning) setTimeout(pollLogs, 1000);
+     });
+ }
+ // 启动扫描
+ function startScan() {
+     const target = targetInput.value.trim();
+     if (!target) {
+         alert('❌ 请输入有效的目标域名！');
+         return;
+     }
+     if (isScanning) {
+         alert('⚠️ 扫描正在进行中，请等待完成！');
+         return;
+     }
+     // 重置状态
+     isScanning = true;
+     startBtn.disabled = true;
+     startBtn.textContent = '🔄 扫描中...';
+     resultArea.textContent = `[系统] 开始扫描目标: ${target}\\n`;
+     // 发送请求给Flask后端
+     fetch('/api/start_scan', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ target: target })
+     })
+     .then(res => res.json())
+     .then(data => {
+         if (data.status === 'success') {
+             resultArea.textContent += '[系统] 扫描任务已启动，后台运行中...\\n';
+             pollLogs(); // 启动日志轮询
+         } else {
+             resultArea.textContent += `[错误] 启动失败: ${data.message}\\n`;
+             resetScanState();
+         }
+     })
+     .catch(err => {
+         resultArea.textContent += `[错误] 连接后端失败: ${err}\\n`;
+         resetScanState();
+     });
+ }
+ // 重置扫描状态
+ function resetScanState() {
+     isScanning = false;
+     startBtn.disabled = false;
+     startBtn.textContent = '🚀 启动安全扫描';
+ }
+ </script>
+ </body>
+ </html>
+ '''
 # ================== 【修复】子域名收集（加备用源，解决crt.sh 502） ==================
 def get_subdomains(domain):
     subdomains = set()

